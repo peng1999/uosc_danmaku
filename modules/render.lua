@@ -1,6 +1,7 @@
 -- modified from https://github.com/rkscv/danmaku/blob/main/danmaku.lua
 local msg = require('mp.msg')
 local utils = require("mp.utils")
+math.randomseed(os.time())
 
 local INTERVAL = options.vf_fps and 0.01 or 0.001
 local osd_width, osd_height, pause = 0, 0, true
@@ -87,6 +88,46 @@ local function parse_ass_events(ass_path, callback)
     callback(nil, events)
 end
 
+local function limit_danmaku(events, limit)
+    if not limit or limit <= 0 then
+        return events
+    end
+
+    local window = {}
+    for _, ev in ipairs(events) do
+        local start = ev.start_time
+        local i = 1
+        while i <= #window do
+            if window[i].end_time <= start then
+                table.remove(window, i)
+            else
+                i = i + 1
+            end
+        end
+
+        if #window >= limit then
+            local idx = math.random(#window + 1)
+            if idx <= #window then
+                window[idx].drop = true
+                table.remove(window, idx)
+                table.insert(window, ev)
+            else
+                ev.drop = true
+            end
+        else
+            table.insert(window, ev)
+        end
+    end
+
+    local result = {}
+    for _, ev in ipairs(events) do
+        if not ev.drop then
+            table.insert(result, ev)
+        end
+    end
+    return result
+end
+
 local overlay = mp.create_osd_overlay('ass-events')
 
 function render()
@@ -141,6 +182,9 @@ local timer = mp.add_periodic_timer(INTERVAL, render, true)
 
 function parse_danmaku(ass_file_path, from_menu, no_osd)
     parse_ass_events(ass_file_path, function(err, events)
+        if options.max_screen_danmaku and tonumber(options.max_screen_danmaku) > 0 then
+            events = limit_danmaku(events, tonumber(options.max_screen_danmaku))
+        end
         comments = events
         if err then
             msg.error("ASS 解析错误: " .. err)
