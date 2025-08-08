@@ -569,7 +569,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         end
     end
 
-    if options.max_screen_danmaku and options.max_screen_danmaku > 0 then
+    if options.max_screen_danmaku > 0 then
         events = limit_danmaku(events, options.max_screen_danmaku)
     end
 
