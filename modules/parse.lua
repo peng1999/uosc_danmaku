@@ -412,21 +412,21 @@ function get_fixed_y(font_size, appear_time, fixtime, array, from_top)
     return nil
 end
 
-local function limit_danmaku(events, limit)
+local function limit_danmaku(danmakus, limit)
     if not limit or limit <= 0 then
-        return events
+        return danmakus
     end
 
     local window = {}
-    for _, ev in ipairs(events) do
+    for _, d in ipairs(danmakus) do
         for i = #window, 1, -1 do
-            if window[i].end_time <= ev.start_time then
+            if window[i].end_time <= d.start_time then
                 table.remove(window, i)
             end
         end
 
         if #window < limit then
-            table.insert(window, ev)
+            table.insert(window, d)
         else
             local max_idx = 1
             for i = 2, #window do
@@ -434,19 +434,19 @@ local function limit_danmaku(events, limit)
                     max_idx = i
                 end
             end
-            if window[max_idx].end_time > ev.end_time then
+            if window[max_idx].end_time > d.end_time then
                 window[max_idx].drop = true
-                window[max_idx] = ev
+                window[max_idx] = d
             else
-                ev.drop = true
+                d.drop = true
             end
         end
     end
 
     local result = {}
-    for _, ev in ipairs(events) do
-        if not ev.drop then
-            table.insert(result, ev)
+    for _, d in ipairs(danmakus) do
+        if not d.drop then
+            table.insert(result, d)
         end
     end
     return result
