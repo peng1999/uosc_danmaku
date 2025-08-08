@@ -282,6 +282,12 @@ function parse_danmaku_files(danmaku_input, delays)
         return nil
     end
 
+    local max_screen = tonumber(options.max_screen_danmaku)
+    local tolerance = tonumber(options.merge_tolerance)
+    if max_screen and max_screen > 0 and (not tolerance or tolerance <= 0) then
+        options.merge_tolerance = tonumber(options.scrolltime)
+    end
+
     -- 按时间排序
     table.sort(all_danmaku, function(a, b)
         return a.time < b.time
@@ -408,6 +414,46 @@ function get_fixed_y(font_size, appear_time, fixtime, array, from_top)
     return nil
 end
 
+local function limit_danmaku(events, limit)
+    if not limit or limit <= 0 then
+        return events
+    end
+
+    local window = {}
+    for _, ev in ipairs(events) do
+        for i = #window, 1, -1 do
+            if window[i].end_time <= ev.start_time then
+                table.remove(window, i)
+            end
+        end
+
+        if #window < limit then
+            table.insert(window, ev)
+        else
+            local max_idx = 1
+            for i = 2, #window do
+                if window[i].end_time > window[max_idx].end_time then
+                    max_idx = i
+                end
+            end
+            if window[max_idx].end_time > ev.end_time then
+                window[max_idx].drop = true
+                window[max_idx] = ev
+            else
+                ev.drop = true
+            end
+        end
+    end
+
+    local result = {}
+    for _, ev in ipairs(events) do
+        if not ev.drop then
+            table.insert(result, ev)
+        end
+    end
+    return result
+end
+
 -- 将弹幕转换为 ASS 格式
 function convert_danmaku_to_ass(all_danmaku, danmaku_file)
     if #all_danmaku == 0 then
@@ -453,7 +499,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     options.fontname, fontsize, alpha, alpha, bold, outline, shadow,
     options.fontname, fontsize, alpha, alpha, bold, outline, shadow)
 
-    local ass_events = {}
+    local events = {}
 
     for _, d in ipairs(all_danmaku) do
         local time = d.type == 1 and math.floor(d.time + 0.5) or d.time
@@ -471,12 +517,13 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         local color_text = string.format("{\\c&H%s%s%s&}", b, g, r)
 
         local start_time_str = seconds_to_time(appear_time)
-        local layer, end_time_str, style, effect
+        local layer, end_time, end_time_str, style, effect
 
         -- 滚动弹幕 (类型 1, 2, 3)
         if danmaku_type >= 1 and danmaku_type <= 3 then
             layer = 0
-            end_time_str = seconds_to_time(appear_time + scrolltime)
+            end_time = appear_time + scrolltime
+            end_time_str = seconds_to_time(end_time)
             style = "R2L"
             local text_length = get_str_width(text, fontsize)
             local x1 = res_x + text_length / 2
@@ -489,7 +536,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         -- 顶部弹幕 (类型 5)
         elseif danmaku_type == 5 then
             layer = 1
-            end_time_str = seconds_to_time(appear_time + fixtime)
+            end_time = appear_time + fixtime
+            end_time_str = seconds_to_time(end_time)
             style = "TOP"
             local x = res_x / 2
             local y = get_fixed_y(fontsize, appear_time, fixtime, top_array, true)
@@ -500,7 +548,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         -- 底部弹幕 (类型 4)
         elseif danmaku_type == 4 then
             layer = 1
-            end_time_str = seconds_to_time(appear_time + fixtime)
+            end_time = appear_time + fixtime
+            end_time_str = seconds_to_time(end_time)
             style = "BTM"
             local x = res_x / 2
             local y = get_fixed_y(fontsize, appear_time, fixtime, top_array, false)
@@ -510,14 +559,23 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         end
 
         if style then
-            local line = nil
+            local line
             if effect then
                line = string.format("Dialogue: %d,%s,%s,%s,,0,0,0,,%s%s%s", layer, start_time_str, end_time_str, style, effect, color_text, text)
             else
                line = string.format("Comment: %d,%s,%s,%s,,0,0,0,,%s%s", layer, start_time_str, end_time_str, style, color_text, text)
             end
-            table.insert(ass_events, line)
+            table.insert(events, {start_time = appear_time, end_time = end_time, line = line})
         end
+    end
+
+    if options.max_screen_danmaku and options.max_screen_danmaku > 0 then
+        events = limit_danmaku(events, options.max_screen_danmaku)
+    end
+
+    local ass_events = {}
+    for _, ev in ipairs(events) do
+        table.insert(ass_events, ev.line)
     end
 
     local final_ass = ass_header .. table.concat(ass_events, "\n")
