@@ -282,10 +282,8 @@ function parse_danmaku_files(danmaku_input, delays)
         return nil
     end
 
-    local max_screen = tonumber(options.max_screen_danmaku)
-    local tolerance = tonumber(options.merge_tolerance)
-    if max_screen and max_screen > 0 and (not tolerance or tolerance <= 0) then
-        options.merge_tolerance = tonumber(options.scrolltime)
+    if options.max_screen_danmaku > 0 and options.merge_tolerance <= 0 then
+        options.merge_tolerance = options.scrolltime
     end
 
     -- 按时间排序
