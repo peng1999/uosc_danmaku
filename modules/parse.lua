@@ -582,7 +582,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             else
                line = string.format("Comment: %d,%s,%s,%s,,0,0,0,,%s%s", layer, start_time_str, end_time_str, style, color_text, text)
             end
-            table.insert(ass_events, ev.line)
+            table.insert(ass_events, line)
         end
     end
 
