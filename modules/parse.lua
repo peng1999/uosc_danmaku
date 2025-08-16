@@ -520,7 +520,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         pre_events = limit_danmaku(pre_events, options.max_screen_danmaku)
     end
 
-    local events = {}
+    local ass_events = {}
     for _, ev in ipairs(pre_events) do
         local d = ev.danmaku
         local appear_time = ev.start_time
@@ -582,13 +582,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             else
                line = string.format("Comment: %d,%s,%s,%s,,0,0,0,,%s%s", layer, start_time_str, end_time_str, style, color_text, text)
             end
-            table.insert(events, {start_time = appear_time, end_time = ev.end_time, line = line})
+            table.insert(ass_events, ev.line)
         end
-    end
-
-    local ass_events = {}
-    for _, ev in ipairs(events) do
-        table.insert(ass_events, ev.line)
     end
 
     local final_ass = ass_header .. table.concat(ass_events, "\n")
